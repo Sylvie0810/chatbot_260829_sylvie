@@ -158,7 +158,7 @@ class StreamlitSmokeTests(unittest.TestCase):
     def test_app_renders_and_preserves_quick_question_without_api_key(self):
         from streamlit.testing.v1 import AppTest
 
-        app = AppTest.from_file("streamlit_app.py").run(timeout=30)
+        app = AppTest.from_file(str(SOURCE_PATH)).run(timeout=30)
         self.assertEqual(len(app.exception), 0)
 
         quick_button = next(
@@ -173,6 +173,24 @@ class StreamlitSmokeTests(unittest.TestCase):
         self.assertTrue(
             any("질문을 보관했습니다" in warning.value for warning in app.warning)
         )
+
+    def test_failed_question_can_be_requeued_from_retry_button(self):
+        from streamlit.testing.v1 import AppTest
+
+        app = AppTest.from_file(str(SOURCE_PATH))
+        app.session_state["failed_prompt"] = "실패한 질문을 다시 검토해 주세요."
+        app.run(timeout=30)
+
+        button_by_label = {button.label: button for button in app.button}
+        self.assertIn("같은 질문 다시 시도", button_by_label)
+        retry_button = button_by_label["같은 질문 다시 시도"]
+        retry_button.click().run(timeout=30)
+
+        self.assertEqual(
+            app.session_state["pending_prompt"],
+            "실패한 질문을 다시 검토해 주세요.",
+        )
+        self.assertIsNone(app.session_state["failed_prompt"])
 
 
 if __name__ == "__main__":

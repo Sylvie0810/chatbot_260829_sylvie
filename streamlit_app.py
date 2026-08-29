@@ -329,6 +329,7 @@ def reset_consultation(clear_api_key=True):
     st.session_state.messages = []
     st.session_state.company_profile = {}
     st.session_state.pending_prompt = None
+    st.session_state.failed_prompt = None
     st.session_state.confirm_reset_all = False
     st.session_state.confirm_reset_chat = False
     if clear_api_key:
@@ -459,6 +460,7 @@ defaults = {
     "messages": [],
     "company_profile": {},
     "pending_prompt": None,
+    "failed_prompt": None,
     "api_key": "",
     "confirm_reset_all": False,
     "confirm_reset_chat": False,
@@ -844,6 +846,7 @@ if prompt:
             icon="👈",
         )
     else:
+        st.session_state.failed_prompt = None
         user_message = {"role": "user", "content": prompt}
         st.session_state.messages.append(user_message)
         with st.chat_message("user"):
@@ -896,9 +899,13 @@ if prompt:
             if debug_mode:
                 with st.expander("개발자용 오류 상세"):
                     st.code(f"{type(exc).__name__}: {exc}")
-            if st.button("같은 질문 다시 시도", use_container_width=True):
-                st.session_state.pending_prompt = prompt
-                st.rerun()
+            st.session_state.failed_prompt = prompt
+
+if st.session_state.failed_prompt:
+    if st.button("같은 질문 다시 시도", use_container_width=True):
+        st.session_state.pending_prompt = st.session_state.failed_prompt
+        st.session_state.failed_prompt = None
+        st.rerun()
 
 
 if st.session_state.messages:
@@ -929,6 +936,7 @@ if st.session_state.messages:
             if st.button("대화 지우기", type="primary", use_container_width=True):
                 st.session_state.messages = []
                 st.session_state.pending_prompt = None
+                st.session_state.failed_prompt = None
                 st.session_state.confirm_reset_chat = False
                 st.rerun()
         with cancel_col:
