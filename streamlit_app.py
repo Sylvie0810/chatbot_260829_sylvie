@@ -1,16 +1,12 @@
-import hmac
 import json
-from datetime import date, datetime, timezone
-from urllib.parse import quote
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
+from datetime import datetime
 
 import streamlit as st
 from openai import OpenAI
 
 
 # ============================================================
-# PAGE
+# PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
@@ -22,193 +18,250 @@ st.set_page_config(
 
 
 # ============================================================
-# UI STYLE
+# CSS
 # ============================================================
 
 st.markdown(
     """
 <style>
 
+/* ----------------------------------------------------------
+   전체 화면
+---------------------------------------------------------- */
+
 .block-container {
-    max-width: 1120px;
-    padding-top: 1.7rem;
-    padding-bottom: 4rem;
+    max-width: 1160px;
+    padding-top: 5.2rem !important;
+    padding-bottom: 6rem;
 }
 
+
+/* ----------------------------------------------------------
+   Streamlit 상단 헤더
+---------------------------------------------------------- */
+
+[data-testid="stHeader"] {
+    background: rgba(255,255,255,0.96);
+}
+
+
+/* ----------------------------------------------------------
+   Sidebar
+---------------------------------------------------------- */
+
 [data-testid="stSidebar"] {
-    background: #f6f7fb;
+    background: #f7f8fb;
     border-right: 1px solid #e6e8ee;
 }
 
-
-/* Sidebar brand */
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 2rem;
+}
 
 .gm-brand {
-    font-size: 1.35rem;
+    font-size: 1.55rem;
     font-weight: 800;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.035em;
+    color: #252a34;
 }
 
-.gm-sub {
-    color: #747987;
-    font-size: .86rem;
-    margin-bottom: 1rem;
+.gm-brand-sub {
+    color: #7b818d;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin-top: 4px;
+    margin-bottom: 1.3rem;
 }
 
 
-/* Top stepper */
+/* ----------------------------------------------------------
+   Stepper
+---------------------------------------------------------- */
 
 .gm-stepper {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin: .3rem 0 .6rem;
+    gap: 18px;
+    margin: 0 0 10px 0;
 }
 
 .gm-step {
+    min-width: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
-    color: #9aa0aa;
+    gap: 9px;
+    color: #a0a6b1;
+    font-size: 0.9rem;
     font-weight: 700;
-    font-size: .92rem;
 }
 
-.gm-step.active,
-.gm-step.done {
-    color: #303642;
+.gm-step.active {
+    color: #222832;
 }
 
 .gm-step.done {
     color: #2f80ed;
 }
 
-.gm-num {
-    width: 24px;
-    height: 24px;
-    border-radius: 7px;
+.gm-step-number {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: #eef0f4;
+    color: #8c939e;
 
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
 
-    background: #edf0f5;
-    color: #8d94a1;
-
-    font-size: .78rem;
+    font-size: 0.78rem;
+    font-weight: 800;
 }
 
-.gm-step.active .gm-num,
-.gm-step.done .gm-num {
+.gm-step.active .gm-step-number,
+.gm-step.done .gm-step-number {
     background: #2f80ed;
-    color: white;
+    color: #ffffff;
 }
-
-
-/* Progress */
 
 .gm-progress {
+    width: 100%;
     height: 7px;
-
-    background: #edf0f5;
-
+    background: #eef0f4;
     border-radius: 999px;
     overflow: hidden;
-
-    margin-bottom: 2rem;
+    margin-bottom: 2.4rem;
 }
 
-.gm-progress div {
+.gm-progress-bar {
     height: 100%;
     background: #2f80ed;
     border-radius: 999px;
 }
 
 
-/* Hero */
+/* ----------------------------------------------------------
+   Hero
+---------------------------------------------------------- */
+
+.gm-hero {
+    margin-bottom: 1.6rem;
+}
 
 .gm-hero h1 {
-    font-size: 2.05rem;
-    line-height: 1.2;
-    letter-spacing: -0.04em;
-
-    margin: .5rem 0 .5rem;
-
+    margin: 0 0 0.7rem 0;
     color: #252a34;
+    font-size: 2.15rem;
+    line-height: 1.25;
+    letter-spacing: -0.045em;
 }
 
 .gm-hero p {
-    color: #686f7b;
-
-    margin: 0 0 1.4rem;
+    margin: 0;
+    color: #747a85;
+    font-size: 1rem;
+    line-height: 1.7;
 }
 
 
-/* Summary */
+/* ----------------------------------------------------------
+   안내 박스
+---------------------------------------------------------- */
 
-.gm-summary {
-    background: #fafbfc;
-
-    border: 1px solid #e1e5ec;
-    border-radius: 14px;
-
+.gm-info-box {
     padding: 15px 17px;
+    margin: 0.4rem 0 1.3rem 0;
 
-    margin: .5rem 0 1.2rem;
+    background: #f8fafc;
+    border: 1px solid #e5e8ed;
+    border-radius: 13px;
 
-    line-height: 1.6;
-
-    color: #424854;
+    color: #505763;
+    font-size: 0.92rem;
+    line-height: 1.65;
 }
 
 
-/* Status */
+/* ----------------------------------------------------------
+   상태
+---------------------------------------------------------- */
 
-.gm-ok {
-    color: #197144;
+.gm-status-ok {
+    color: #177245;
     font-weight: 700;
 }
 
-.gm-warn {
-    color: #a06400;
+.gm-status-warn {
+    color: #9a6400;
     font-weight: 700;
 }
 
 
-/* Chat */
+/* ----------------------------------------------------------
+   Chat
+---------------------------------------------------------- */
 
 div[data-testid="stChatMessage"] {
-    border: 1px solid #edf0f3;
-
-    border-radius: 14px;
-
-    padding: .35rem .6rem;
-
-    margin-bottom: .5rem;
+    border: 1px solid #eceff3;
+    border-radius: 15px;
+    padding: 0.35rem 0.6rem;
+    margin-bottom: 0.55rem;
 }
 
 
-/* Buttons */
+/* ----------------------------------------------------------
+   Form
+---------------------------------------------------------- */
+
+div[data-testid="stForm"] {
+    border: 1px solid #e4e7ec;
+    border-radius: 15px;
+    padding: 1rem 1rem 0.5rem 1rem;
+}
+
+
+/* ----------------------------------------------------------
+   Buttons
+---------------------------------------------------------- */
 
 .stButton > button,
-.stFormSubmitButton > button {
+.stFormSubmitButton > button,
+.stDownloadButton > button {
     border-radius: 10px;
+    min-height: 42px;
     font-weight: 700;
 }
 
 
-/* Mobile */
+/* ----------------------------------------------------------
+   모바일
+---------------------------------------------------------- */
 
-@media(max-width:700px) {
+@media (max-width: 700px) {
+
+    .block-container {
+        padding-top: 4.5rem !important;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
 
     .gm-stepper {
         grid-template-columns: 1fr;
+        gap: 7px;
+    }
+
+    .gm-progress {
+        margin-top: 12px;
     }
 
     .gm-hero h1 {
         font-size: 1.65rem;
     }
 
+    .gm-hero p {
+        font-size: 0.92rem;
+    }
 }
 
 </style>
@@ -218,837 +271,110 @@ div[data-testid="stChatMessage"] {
 
 
 # ============================================================
-# HELPER
+# HELPERS
 # ============================================================
 
-def secret(name, default=""):
-
+def get_secret(name, default=""):
     try:
         return st.secrets[name]
-
     except Exception:
         return default
 
 
-def parse_profile(raw):
-
-    if not raw:
-        return {}
-
-    try:
-
-        value = json.loads(raw)
-
-        return value if isinstance(value, dict) else {}
-
-    except Exception:
-
-        # 이전 버전 plain text 데이터가 있어도 살려둔다.
-        return {
-            "extra_context": raw
-        }
-
-
-def profile_text(profile):
+def profile_to_text(profile):
+    """AI에 전달할 기업/사업 정보를 읽기 쉬운 텍스트로 변환."""
 
     labels = {
-
-        "company_name":
-            "기업명",
-
-        "business_item":
-            "사업 아이템",
-
-        "stage":
-            "현재 단계",
-
-        "problem":
-            "해결하려는 문제",
-
-        "needed_data":
-            "필요한 공공데이터",
-
-        "data_holder":
-            "데이터 보유기관",
-
-        "request_date":
-            "공공데이터 신청일",
-
-        "data_result":
-            "처리 결과",
-
-        "refusal_reason":
-            "제공거부 사유",
-
-        "development":
-            "현재 개발단계",
-
-        "extra_context":
-            "추가 정보",
+        "company_name": "기업명",
+        "business_item": "사업 아이템",
+        "stage": "현재 단계",
+        "problem": "해결하려는 문제",
+        "needed_data": "필요한 공공데이터",
+        "needed_fields": "필요 데이터 항목",
+        "data_holder": "예상 데이터 보유기관",
+        "request_date": "공공데이터 제공 신청일",
+        "data_result": "처리 결과",
+        "refusal_reason": "제공 불가 사유",
+        "development": "현재 개발단계 / 보유 기능",
+        "customers": "주요 고객",
+        "business_model": "사업화 / 수익모델",
+        "team": "팀 역량",
+        "extra_context": "추가 정보",
     }
 
+    lines = []
 
-    text = "\n".join(
-
-        f"{label}: {profile.get(key)}"
-
-        for key, label in labels.items()
-
-        if profile.get(key)
-    )
-
-
-    return (
-        text
-        if text
-        else "입력된 기업/사업 정보 없음."
-    )
-
-
-def safe_date(
-    value,
-    fallback=date(2026, 8, 20),
-):
-
-    try:
+    for key, label in labels.items():
+        value = profile.get(key, "")
 
         if value:
-            return date.fromisoformat(
-                str(value)
-            )
+            lines.append(f"{label}: {value}")
 
-        return fallback
+    if not lines:
+        return "아직 입력된 기업/사업 정보가 없습니다."
 
-    except Exception:
+    return "\n".join(lines)
 
-        return fallback
 
+def conversation_markdown(messages):
+    """다운로드용 Markdown 생성."""
 
-# ============================================================
-# SECRETS
-# ============================================================
-
-OPENAI_API_KEY = secret(
-    "OPENAI_API_KEY"
-)
-
-SUPABASE_URL = secret(
-    "SUPABASE_URL"
-).rstrip("/")
-
-SUPABASE_SECRET_KEY = secret(
-    "SUPABASE_SECRET_KEY"
-)
-
-APP_PASSWORD = secret(
-    "APP_PASSWORD"
-)
-
-CHAT_OWNER_ID = secret(
-    "CHAT_OWNER_ID",
-    "sylvie",
-)
-
-
-DB_ENABLED = bool(
-    SUPABASE_URL
-    and
-    SUPABASE_SECRET_KEY
-)
-
-
-# ============================================================
-# OPTIONAL PASSWORD
-# ============================================================
-
-# APP_PASSWORD를 Secrets에 넣은 경우에만
-# 로그인 화면이 나온다.
-#
-# APP_PASSWORD를 설정하지 않으면
-# 이 과정은 자동으로 생략된다.
-
-if APP_PASSWORD:
-
-    if "authenticated" not in st.session_state:
-
-        st.session_state.authenticated = False
-
-
-    if not st.session_state.authenticated:
-
-        st.title(
-            "🔒 GrantMate"
-        )
-
-
-        with st.form(
-            "login"
-        ):
-
-            pw = st.text_input(
-                "접속 비밀번호",
-                type="password",
-            )
-
-            submitted = (
-                st.form_submit_button(
-                    "입장하기",
-                    use_container_width=True,
-                )
-            )
-
-
-        if submitted:
-
-            if hmac.compare_digest(
-                pw,
-                APP_PASSWORD,
-            ):
-
-                st.session_state.authenticated = True
-
-                st.rerun()
-
-            else:
-
-                st.error(
-                    "비밀번호가 올바르지 않습니다."
-                )
-
-
-        st.stop()
-
-
-# ============================================================
-# SUPABASE REST API
-# ============================================================
-
-# 중요:
-#
-# supabase Python 패키지를 사용하지 않는다.
-#
-# 따라서 requirements.txt에
-# supabase를 추가할 필요가 없다.
-#
-# Streamlit 서버 → Supabase REST API
-# 방식으로 직접 저장한다.
-
-
-def db_request(
-    method,
-    table,
-    query="",
-    payload=None,
-    prefer="return=representation",
-):
-
-    url = (
-        f"{SUPABASE_URL}"
-        f"/rest/v1/"
-        f"{table}"
-        f"{query}"
-    )
-
-
-    if payload is not None:
-
-        body = json.dumps(
-            payload,
-            ensure_ascii=False,
-        ).encode(
-            "utf-8"
-        )
-
-    else:
-
-        body = None
-
-
-    headers = {
-
-        "apikey":
-            SUPABASE_SECRET_KEY,
-
-        "Authorization":
-            f"Bearer {SUPABASE_SECRET_KEY}",
-
-        "Content-Type":
-            "application/json",
-
-        "Accept":
-            "application/json",
-
-        "Prefer":
-            prefer,
-    }
-
-
-    request = Request(
-
-        url=url,
-
-        data=body,
-
-        headers=headers,
-
-        method=method,
-    )
-
-
-    try:
-
-        with urlopen(
-            request,
-            timeout=12,
-        ) as response:
-
-            text = (
-                response
-                .read()
-                .decode("utf-8")
-            )
-
-
-            if text:
-
-                return json.loads(
-                    text
-                )
-
-
-            return []
-
-
-    except (
-        HTTPError,
-        URLError,
-        TimeoutError,
-    ) as exc:
-
-        # 앱 전체를 죽이지 않는다.
-        # 저장만 비활성화/오류표시한다.
-
-        st.session_state.db_error = (
-            str(exc)
-        )
-
-        return None
-
-
-# ============================================================
-# DATABASE FUNCTIONS
-# ============================================================
-
-def list_sessions():
-
-    if not DB_ENABLED:
-        return []
-
-
-    owner = quote(
-        CHAT_OWNER_ID,
-        safe="",
-    )
-
-
-    data = db_request(
-
-        "GET",
-
-        "chat_sessions",
-
-        (
-            f"?owner_id=eq.{owner}"
-            "&select="
-            "id,title,company_info,"
-            "created_at,updated_at"
-            "&order=updated_at.desc"
-            "&limit=20"
-        ),
-    )
-
-
-    return (
-        data
-        if isinstance(data, list)
-        else []
-    )
-
-
-def create_session():
-
-    if not DB_ENABLED:
-        return "local"
-
-
-    now = datetime.now(
-        timezone.utc
-    ).isoformat()
-
-
-    data = db_request(
-
-        "POST",
-
-        "chat_sessions",
-
-        payload={
-
-            "owner_id":
-                CHAT_OWNER_ID,
-
-            "title":
-                "새 상담",
-
-            "company_info":
-                "",
-
-            "created_at":
-                now,
-
-            "updated_at":
-                now,
-        },
-    )
-
-
-    if data:
-
-        return data[0]["id"]
-
-
-    return "local"
-
-
-def get_session(
-    session_id
-):
-
-    if (
-        not DB_ENABLED
-        or
-        session_id == "local"
-    ):
-        return None
-
-
-    sid = quote(
-        str(session_id),
-        safe="",
-    )
-
-    owner = quote(
-        CHAT_OWNER_ID,
-        safe="",
-    )
-
-
-    data = db_request(
-
-        "GET",
-
-        "chat_sessions",
-
-        (
-            f"?id=eq.{sid}"
-            f"&owner_id=eq.{owner}"
-            "&select="
-            "id,title,company_info,"
-            "created_at,updated_at"
-            "&limit=1"
-        ),
-    )
-
-
-    if data:
-
-        return data[0]
-
-
-    return None
-
-
-def load_messages(
-    session_id
-):
-
-    if (
-        not DB_ENABLED
-        or
-        session_id == "local"
-    ):
-
-        return (
-            st.session_state.get(
-                "local_messages",
-                [],
-            )
-        )
-
-
-    sid = quote(
-        str(session_id),
-        safe="",
-    )
-
-    owner = quote(
-        CHAT_OWNER_ID,
-        safe="",
-    )
-
-
-    data = db_request(
-
-        "GET",
-
-        "chat_messages",
-
-        (
-            f"?session_id=eq.{sid}"
-            f"&owner_id=eq.{owner}"
-            "&select="
-            "role,content,created_at"
-            "&order=created_at.asc"
-        ),
-    )
-
-
-    if not data:
-
-        return []
-
-
-    return [
-
-        {
-            "role":
-                row["role"],
-
-            "content":
-                row["content"],
-        }
-
-        for row in data
+    lines = [
+        "# GrantMate 상담 기록",
+        "",
+        f"저장 시각: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        "",
     ]
 
+    for message in messages:
+        if message["role"] == "user":
+            speaker = "사용자"
+        else:
+            speaker = "GrantMate"
 
-def save_message(
-    session_id,
-    role,
-    content,
-):
+        lines.append(f"## {speaker}")
+        lines.append("")
+        lines.append(message["content"])
+        lines.append("")
 
-    if (
-        not DB_ENABLED
-        or
-        session_id == "local"
-    ):
-
-        st.session_state.local_messages = (
-            list(
-                st.session_state.messages
-            )
-        )
-
-        return
-
-
-    now = datetime.now(
-        timezone.utc
-    ).isoformat()
-
-
-    db_request(
-
-        "POST",
-
-        "chat_messages",
-
-        payload={
-
-            "session_id":
-                session_id,
-
-            "owner_id":
-                CHAT_OWNER_ID,
-
-            "role":
-                role,
-
-            "content":
-                content,
-
-            "created_at":
-                now,
-        },
-    )
-
-
-    sid = quote(
-        str(session_id),
-        safe="",
-    )
-
-    owner = quote(
-        CHAT_OWNER_ID,
-        safe="",
-    )
-
-
-    db_request(
-
-        "PATCH",
-
-        "chat_sessions",
-
-        (
-            f"?id=eq.{sid}"
-            f"&owner_id=eq.{owner}"
-        ),
-
-        payload={
-            "updated_at":
-                now
-        },
-
-        prefer="return=minimal",
-    )
-
-
-def save_profile(
-    session_id,
-    profile,
-):
-
-    raw = json.dumps(
-        profile,
-        ensure_ascii=False,
-    )
-
-
-    if (
-        not DB_ENABLED
-        or
-        session_id == "local"
-    ):
-
-        st.session_state.local_profile = (
-            raw
-        )
-
-        return
-
-
-    sid = quote(
-        str(session_id),
-        safe="",
-    )
-
-    owner = quote(
-        CHAT_OWNER_ID,
-        safe="",
-    )
-
-
-    db_request(
-
-        "PATCH",
-
-        "chat_sessions",
-
-        (
-            f"?id=eq.{sid}"
-            f"&owner_id=eq.{owner}"
-        ),
-
-        payload={
-
-            "company_info":
-                raw,
-
-            "updated_at":
-                datetime.now(
-                    timezone.utc
-                ).isoformat(),
-        },
-
-        prefer="return=minimal",
-    )
-
-
-def update_title(
-    session_id,
-    title,
-):
-
-    if (
-        not DB_ENABLED
-        or
-        session_id == "local"
-    ):
-
-        st.session_state.local_title = (
-            title
-        )
-
-        return
-
-
-    sid = quote(
-        str(session_id),
-        safe="",
-    )
-
-    owner = quote(
-        CHAT_OWNER_ID,
-        safe="",
-    )
-
-
-    db_request(
-
-        "PATCH",
-
-        "chat_sessions",
-
-        (
-            f"?id=eq.{sid}"
-            f"&owner_id=eq.{owner}"
-        ),
-
-        payload={
-            "title":
-                title
-        },
-
-        prefer="return=minimal",
-    )
+    return "\n".join(lines)
 
 
 # ============================================================
-# INIT SESSION
+# SESSION STATE
 # ============================================================
-
-if "active_session_id" not in st.session_state:
-
-    if DB_ENABLED:
-
-        sessions = list_sessions()
-
-    else:
-
-        sessions = []
-
-
-    if sessions:
-
-        st.session_state.active_session_id = (
-            sessions[0]["id"]
-        )
-
-    else:
-
-        st.session_state.active_session_id = (
-            create_session()
-        )
-
-
-def load_active():
-
-    sid = (
-        st.session_state
-        .active_session_id
-    )
-
-
-    if (
-        DB_ENABLED
-        and
-        sid != "local"
-    ):
-
-        session = get_session(
-            sid
-        )
-
-
-        if not session:
-
-            sid = create_session()
-
-            st.session_state.active_session_id = (
-                sid
-            )
-
-            session = get_session(
-                sid
-            )
-
-
-        st.session_state.messages = (
-            load_messages(
-                sid
-            )
-        )
-
-
-        st.session_state.company_profile = (
-            parse_profile(
-                (
-                    session
-                    or {}
-                ).get(
-                    "company_info",
-                    "",
-                )
-            )
-        )
-
-
-    else:
-
-        st.session_state.messages = (
-            st.session_state.get(
-                "local_messages",
-                [],
-            )
-        )
-
-
-        st.session_state.company_profile = (
-            parse_profile(
-                st.session_state.get(
-                    "local_profile",
-                    "",
-                )
-            )
-        )
-
-
-    st.session_state.loaded_session_id = (
-        sid
-    )
-
-
-if (
-    st.session_state.get(
-        "loaded_session_id"
-    )
-    !=
-    st.session_state.active_session_id
-):
-
-    load_active()
-
 
 if "messages" not in st.session_state:
-
     st.session_state.messages = []
 
 
 if "company_profile" not in st.session_state:
-
     st.session_state.company_profile = {}
+
+
+if "profile_saved" not in st.session_state:
+    st.session_state.profile_saved = False
+
+
+# ============================================================
+# PUBLIC DEMO API POLICY
+# ============================================================
+
+# 공개 URL에서는 기본적으로 방문자가 자신의 API Key를 입력하도록 합니다.
+# 개인 OpenAI API Key를 공개 앱에 자동 사용하면
+# 방문자의 API 사용료가 앱 소유자에게 청구될 수 있기 때문입니다.
+
+SHARED_OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
+
+USE_SHARED_OPENAI_KEY = (
+    str(
+        get_secret(
+            "USE_SHARED_OPENAI_KEY",
+            "false",
+        )
+    ).lower()
+    == "true"
+)
 
 
 # ============================================================
@@ -1056,135 +382,189 @@ if "company_profile" not in st.session_state:
 # ============================================================
 
 PROGRAM_KNOWLEDGE = """
+[사업 기본정보]
+
 사업명:
 2026 민관협력 오픈이노베이션 지원
 '공공데이터 활용 지원'
 창업기업 제안 협업 과제(Bottom-Up)
 
 사업목적:
-공공기관 보유 데이터를 창업기업에 개방하고
-활용하도록 지원해 공공서비스 혁신과
-창업기업 성장(Scale-up)을 촉진한다.
+공공기관이 보유한 데이터를 창업기업에 개방하고
+활용을 지원하여 공공서비스 혁신과
+창업기업의 성장(Scale-up)을 촉진한다.
 
 선정규모:
-공공기관 제안 협업과제와 통합해
-총 20개 과제 내외.
+공공기관 제안 협업과제와 통합하여 총 20개 과제 내외.
 
 지원내용:
 - 미개방 공공데이터 확보 지원
-- 데이터 분석·처리
-- 기술검증(PoC)
-- 제품·서비스 개발
+- 공공기관과 데이터 제공 가능 조건 협의
+- 데이터 분석 및 처리
+- 공공데이터 활용 기술검증(PoC)
+- 제품 및 서비스 개발
 - 과제별 최대 1억원 사업화 자금
-- 후속 연계 지원
+- 후속 기술개발 지원사업 연계
 
 협약기간:
 협약 시작일로부터 5개월 이내
 2026년 11월 ~ 2027년 3월 예정.
 
-핵심 신청요건:
-1. 공고상 창업기업 자격 충족
-2. 공공데이터포털을 통해 마감 전 제공신청
-3. 보유기관으로부터 '제공 불가' 통보
-4. 데이터 미개방/확보 곤란으로 사업 추진 어려움 존재
-5. 데이터 확보 후 구체적인 제품·서비스 개발 또는 연구개발 활용계획 제시
 
-공식 평가영역:
+[핵심 신청요건]
+
+1.
+공고에서 정하는 창업기업 자격을 충족해야 한다.
+
+2.
+공공데이터포털을 통해 공고 마감일 이전에
+필요한 공공데이터의 제공을 신청한 경험이 있어야 한다.
+
+3.
+해당 데이터 보유기관으로부터
+'제공 불가' 통보를 받은 경우여야 한다.
+
+4.
+필요 데이터가 미개방되어 있거나 확보가 어려워
+사업 추진에 실질적인 어려움이 있어야 한다.
+
+5.
+데이터 확보 이후
+제품·서비스 개발 또는 연구개발 등에 활용하는
+구체적인 계획이 필요하다.
+
+6.
+단순 정보수집, 열람, 출판 목적은 지원 대상이 아니다.
+
+
+[공식 평가영역]
+
 1. 공공데이터 활용계획
+- 기존 제공거부 경험
+- 미개방 데이터의 활용목적
+- 활용내용
+- 필요한 데이터 요구항목의 구체성
+
 2. 팀(기업) 구성
+- 보유 기술
+- 인력 전문성
+- 관련 프로젝트 또는 연구 수행 경험
+
 3. 실현 가능성 및 구체성
+- 데이터 확보 이후 사업화 추진계획
+- 기술·서비스 구현계획
+- 구체성
+- 차별성
+
 4. 지속가능성
+- 사업화 가능성
+- 협업 종료 후 지속·유지 가능성
+- 수익성 검증
 
-공식 항목별 배점은 공개되어 있지 않다.
+공식 평가항목별 세부 배점은 공개되어 있지 않다.
 
-대체 개방형태:
-- 합성데이터
-- 통계데이터
-- 익명데이터
-- 진위확인서비스
 
-핵심 논리:
-문제
-→ 필요한 공공데이터
-→ 데이터의 필수성
-→ 활용방법
-→ 구현기능
-→ 5개월 PoC
-→ 공공기관 가치
-→ 고객 가치
-→ 사업화·확장
+[대체 개방형태]
 
-작성원칙:
-- 없는 실적을 만들지 않는다.
-- 없는 고객을 만들지 않는다.
-- 없는 매출을 만들지 않는다.
-- 없는 계약을 만들지 않는다.
-- 없는 특허를 만들지 않는다.
-- 없는 인력이나 기술을 만들지 않는다.
-- 확인되지 않은 내용은 '확인 필요'로 표시한다.
-- 공고에 없는 요건·배점을 공식 사실처럼 말하지 않는다.
+원자료 제공이 어려운 경우 다음 방식도 검토할 수 있다.
+
+1. 합성데이터
+2. 통계데이터
+3. 익명데이터
+4. 진위확인서비스
+
+
+[사업계획서 핵심 논리]
+
+시장 또는 공공서비스의 실제 문제
+→ 기존 방식의 한계
+→ 어떤 공공데이터가 필요한가
+→ 그 데이터가 왜 반드시 필요한가
+→ 확보한 데이터를 어떻게 활용하는가
+→ 어떤 제품·서비스 기능을 구현하는가
+→ 5개월 동안 무엇을 검증하는가
+→ 공공기관에 어떤 가치가 생기는가
+→ 고객에게 어떤 가치가 생기는가
+→ 협약 종료 후 어떻게 사업화·확장되는가
+
+
+[작성 원칙]
+
+- 존재하지 않는 실적을 만들지 않는다.
+- 존재하지 않는 고객을 만들지 않는다.
+- 존재하지 않는 매출을 만들지 않는다.
+- 존재하지 않는 계약을 만들지 않는다.
+- 존재하지 않는 특허를 만들지 않는다.
+- 존재하지 않는 인력이나 기술을 만들지 않는다.
+- 확인되지 않은 정보는 '확인 필요'라고 표시한다.
+- 공고에 없는 요건을 공식 요건처럼 말하지 않는다.
+- 공고에 없는 평가 배점을 공식 점수처럼 말하지 않는다.
 """
 
+
+# ============================================================
+# MODE
+# ============================================================
 
 MODE_INSTRUCTIONS = {
+    "💬 자유 상담": """
+사용자의 질문에 정부지원사업 전문 컨설턴트처럼 답한다.
 
-    "💬 자유 상담":
-        """
-질문에 먼저 직접 답한다.
-핵심 정보가 부족하면 필요한 정보만 추가 질문한다.
+답할 수 있는 내용은 먼저 직접 답한다.
+중요한 정보가 부족할 때만 필요한 질문을 한다.
 """,
 
-    "✍️ 사업계획서 작성":
-        """
-현재 확인된 사실만 사용한다.
-실제 사업계획서에 붙여 넣을 수 있는 문안을 작성한다.
-핵심 정보가 부족하면 그 부분만 먼저 확인한다.
+    "✍️ 사업계획서 작성": """
+사용자가 제공한 사실을 기반으로
+실제 사업계획서에 활용할 수 있는 문안을 작성한다.
+
+정보가 부족한 경우 없는 정보를 만들지 않는다.
+필요한 정보만 간결하게 추가 질문한다.
 """,
 
-    "🔎 심사위원 평가":
-        """
-공식 평가영역을 기준으로
-강점, 약점, 심사위원의 의심 지점,
-탈락 위험, 개선방법을 평가한다.
+    "🔎 심사위원 평가": """
+가상의 심사위원 관점에서 검토한다.
 
-마지막에 수정 우선순위 TOP 3를 제시한다.
+공식 평가영역별로:
+- 강점
+- 약점
+- 심사위원이 의심할 부분
+- 탈락 위험
+- 개선방안
+
+을 제시한다.
+
+마지막에 수정 우선순위 TOP 3를 제공한다.
+
+공식 배점이 공개되지 않았으므로
+AI 가상점수를 공식점수처럼 제시하지 않는다.
 """,
 
-    "✅ 제출 전 점검":
-        """
-신청자격, 필수 증빙,
-사업계획서 논리,
-공공데이터 신청 및 거부 이력을 QA한다.
+    "✅ 제출 전 점검": """
+정부지원사업 제출 전 QA 담당자처럼 검토한다.
 
-결과는
+결과를:
 ✅ 확인 완료
 ⚠️ 확인 필요
-❌ 중대한 위험
+❌ 중대한 누락 또는 위험
+
 으로 구분한다.
-"""
+
+마지막에 제출 전 해야 할 일을 우선순위로 정리한다.
+""",
 }
 
 
 SECTIONS = [
-
     "전체",
-
     "공공데이터 활용계획",
-
     "과제 해결방안",
-
     "기술 경쟁력",
-
     "산출물 및 개발단계",
-
     "사업화 방안",
-
     "대표자·팀 역량",
-
     "협약기간 추진계획",
-
     "정부지원사업비",
-
     "기업 현황",
 ]
 
@@ -1196,271 +576,144 @@ SECTIONS = [
 with st.sidebar:
 
     st.markdown(
-        '<div class="gm-brand">📄 GrantMate</div>',
+        """
+<div class="gm-brand">
+📄 GrantMate
+</div>
+
+<div class="gm-brand-sub">
+공공데이터 활용 지원사업<br>
+사업계획서 AI Coach
+</div>
+""",
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-        '<div class="gm-sub">'
-        '공공데이터 사업계획서 AI Coach'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    # --------------------------------------------------------
+    # API
+    # --------------------------------------------------------
 
+    st.markdown("### 🔑 AI 연결")
 
-    # --------------------------------
-    # OpenAI
-    # --------------------------------
-
-    st.markdown(
-        "#### 🔑 AI 연결"
-    )
-
-
-    if OPENAI_API_KEY:
-
-        openai_key = (
-            OPENAI_API_KEY
-        )
-
+    if (
+        USE_SHARED_OPENAI_KEY
+        and SHARED_OPENAI_API_KEY
+    ):
+        openai_api_key = SHARED_OPENAI_API_KEY
 
         st.markdown(
-            '<span class="gm-ok">'
-            '● OpenAI 연결됨'
+            '<span class="gm-status-ok">'
+            '● AI 사용 가능'
             '</span>',
             unsafe_allow_html=True,
         )
-
 
     else:
-
-        openai_key = (
-            st.text_input(
-                "OpenAI API Key",
-                type="password",
-                placeholder="sk-...",
-            )
+        openai_api_key = st.text_input(
+            "OpenAI API Key",
+            type="password",
+            placeholder="sk-...",
+            help=(
+                "입력한 API Key는 이 앱의 코드나 "
+                "대화내용에 저장하지 않습니다."
+            ),
         )
 
-
-        if openai_key:
-
-            status = (
-                "● 이번 세션에서 연결됨"
+        if openai_api_key:
+            st.markdown(
+                '<span class="gm-status-ok">'
+                '● 이번 세션에서 연결됨'
+                '</span>',
+                unsafe_allow_html=True,
             )
-
-            css_class = (
-                "gm-ok"
-            )
-
         else:
-
-            status = (
-                "● API 키를 입력해 주세요"
+            st.markdown(
+                '<span class="gm-status-warn">'
+                '● API Key를 입력해 주세요'
+                '</span>',
+                unsafe_allow_html=True,
             )
 
-            css_class = (
-                "gm-warn"
-            )
+    st.caption(
+        "공개 데모에서는 방문자가 자신의 "
+        "API Key를 입력하는 방식입니다."
+    )
 
-
-        st.markdown(
-            f'<span class="{css_class}">'
-            f'{status}'
-            '</span>',
-            unsafe_allow_html=True,
-        )
-
-
-    # --------------------------------
+    # --------------------------------------------------------
     # Progress
-    # --------------------------------
+    # --------------------------------------------------------
 
     st.divider()
 
-    st.markdown(
-        "#### 📌 진행 현황"
-    )
+    st.markdown("### 📌 준비 흐름")
 
-    st.caption(
-        "1  기업 / 사업 정보"
-    )
+    st.caption("① 기업 / 사업 이해")
+    st.caption("② 공공데이터 필요성")
+    st.caption("③ 과제 해결방안")
+    st.caption("④ 사업화·실행계획")
+    st.caption("⑤ 제출 전 QA")
 
-    st.caption(
-        "2  공공데이터 활용계획"
-    )
-
-    st.caption(
-        "3  과제 해결방안"
-    )
-
-    st.caption(
-        "4  사업화·실행계획"
-    )
-
-    st.caption(
-        "5  제출 전 QA"
-    )
-
-
-    # --------------------------------
+    # --------------------------------------------------------
     # Mode
-    # --------------------------------
+    # --------------------------------------------------------
 
     st.divider()
-
 
     mode = st.selectbox(
         "상담 모드",
-        list(
-            MODE_INSTRUCTIONS
-        ),
+        list(MODE_INSTRUCTIONS.keys()),
     )
-
 
     section = st.selectbox(
         "집중 검토 항목",
         SECTIONS,
     )
 
-
-    # --------------------------------
-    # Storage
-    # --------------------------------
+    # --------------------------------------------------------
+    # Conversation controls
+    # --------------------------------------------------------
 
     st.divider()
 
-
-    if DB_ENABLED:
-
-        st.markdown(
-            '<span class="gm-ok">'
-            '☁ 대화 자동 저장 ON'
-            '</span>',
-            unsafe_allow_html=True,
-        )
-
-
-        if st.button(
-            "＋ 새 상담",
-            use_container_width=True,
-        ):
-
-            st.session_state.active_session_id = (
-                create_session()
-            )
-
-            st.session_state.loaded_session_id = None
-
-            st.rerun()
-
-
-        sessions = list_sessions()
-
-
-        if sessions:
-
-            st.caption(
-                "최근 상담"
-            )
-
-
-            for row in sessions[:8]:
-
-                if (
-                    row["id"]
-                    ==
-                    st.session_state.active_session_id
-                ):
-
-                    prefix = "● "
-
-                else:
-
-                    prefix = ""
-
-
-                title = (
-                    row.get("title")
-                    or
-                    "새 상담"
-                )
-
-
-                if st.button(
-                    prefix + title,
-                    key=f"hist_{row['id']}",
-                    use_container_width=True,
-                ):
-
-                    st.session_state.active_session_id = (
-                        row["id"]
-                    )
-
-                    st.session_state.loaded_session_id = None
-
-                    st.rerun()
-
-
-    else:
-
-        st.markdown(
-            '<span class="gm-warn">'
-            '☁ 영구 저장 OFF'
-            '</span>',
-            unsafe_allow_html=True,
-        )
-
-
-        st.caption(
-            "SUPABASE_URL / "
-            "SUPABASE_SECRET_KEY를 "
-            "Streamlit Secrets에 넣으면 "
-            "자동 저장이 켜집니다."
-        )
-
-
-        if st.button(
-            "＋ 새 상담",
-            use_container_width=True,
-        ):
-
-            st.session_state.local_messages = []
-
-            st.session_state.local_profile = ""
-
-            st.session_state.messages = []
-
-            st.session_state.company_profile = {}
-
-            st.rerun()
-
-
-    if st.session_state.get(
-        "db_error"
+    if st.button(
+        "＋ 새 상담",
+        use_container_width=True,
     ):
+        st.session_state.messages = []
+        st.session_state.company_profile = {}
+        st.session_state.profile_saved = False
+        st.rerun()
 
-        with st.expander(
-            "저장 연결 오류"
-        ):
+    if st.session_state.messages:
 
-            st.code(
-                st.session_state.db_error
-            )
+        transcript = conversation_markdown(
+            st.session_state.messages
+        )
+
+        st.download_button(
+            "⬇ 상담 내용 저장",
+            data=transcript,
+            file_name="grantmate_chat.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+
+    st.caption(
+        "현재 공개 데모에서는 대화가 "
+        "브라우저 세션 동안만 유지됩니다."
+    )
 
 
 # ============================================================
-# TOP STEPPER
+# STEP STATUS
 # ============================================================
 
-profile = (
-    st.session_state.company_profile
-)
+profile = st.session_state.company_profile
 
 has_profile = bool(
     profile.get("business_item")
-    or
-    profile.get("needed_data")
+    or profile.get("problem")
+    or profile.get("needed_data")
 )
 
 has_messages = bool(
@@ -1469,68 +722,60 @@ has_messages = bool(
 
 
 if has_messages:
-
-    step = 3
-
+    current_step = 3
 elif has_profile:
-
-    step = 2
-
+    current_step = 2
 else:
+    current_step = 1
 
-    step = 1
 
-
-progress = {
-    1: 33,
-    2: 66,
+progress_percent = {
+    1: 34,
+    2: 67,
     3: 100,
-}[step]
+}[current_step]
 
 
-classes = [
+def step_class(step_number):
+    if step_number < current_step:
+        return "done"
 
-    (
-        "done"
-        if i < step
-        else
-        "active"
-        if i == step
-        else
-        ""
-    )
+    if step_number == current_step:
+        return "active"
 
-    for i in (
-        1,
-        2,
-        3,
-    )
-]
+    return ""
 
+
+# ============================================================
+# TOP STEPPER
+# ============================================================
 
 st.markdown(
     f"""
 <div class="gm-stepper">
 
-<div class="gm-step {classes[0]}">
-<span class="gm-num">1</span>
-기업 / 사업 입력
-</div>
+    <div class="gm-step {step_class(1)}">
+        <div class="gm-step-number">1</div>
+        <div>사업 정보 입력</div>
+    </div>
 
-<div class="gm-step {classes[1]}">
-<span class="gm-num">2</span>
-공공데이터 전략 점검
-</div>
+    <div class="gm-step {step_class(2)}">
+        <div class="gm-step-number">2</div>
+        <div>공공데이터 전략 점검</div>
+    </div>
 
-<div class="gm-step {classes[2]}">
-<span class="gm-num">3</span>
-AI와 함께 작성
-</div>
+    <div class="gm-step {step_class(3)}">
+        <div class="gm-step-number">3</div>
+        <div>AI와 함께 작성</div>
+    </div>
 
 </div>
 
 <div class="gm-progress">
-<div style="width:{progress}%"></div>
+    <div
+        class="gm-progress-bar"
+        style="width:{progress_percent}%"
+    ></div>
 </div>
 """,
     unsafe_allow_html=True,
@@ -1552,8 +797,8 @@ if not has_messages:
 </h1>
 
 <p>
-먼저 사업과 필요한 데이터를 알려주세요.
-부족한 부분은 AI가 질문하고,
+사업의 문제와 필요한 공공데이터를 입력하면
+AI가 공고 요건과 심사 관점에서 부족한 부분을 찾고,
 사업계획서 문안까지 함께 정리합니다.
 </p>
 
@@ -1561,7 +806,6 @@ if not has_messages:
 """,
         unsafe_allow_html=True,
     )
-
 
 else:
 
@@ -1574,8 +818,8 @@ else:
 </h1>
 
 <p>
-공고 요건과 평가 관점에 맞춰
-질문·작성·레드팀 검토를 이어가세요.
+현재 입력한 사업정보를 바탕으로
+질문, 작성, 심사위원 검토를 계속할 수 있습니다.
 </p>
 
 </div>
@@ -1585,329 +829,315 @@ else:
 
 
 # ============================================================
+# INFO MESSAGE
+# ============================================================
+
+st.markdown(
+    """
+<div class="gm-info-box">
+
+<b>처음 사용하시나요?</b><br>
+
+아는 내용만 입력하시면 됩니다.
+아직 정하지 못한 항목은 비워 두어도 됩니다.
+AI가 필요한 내용만 추가로 질문합니다.
+
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+
+# ============================================================
 # PROFILE FORM
 # ============================================================
 
+profile = st.session_state.company_profile
+
+
 with st.expander(
-    "🏢 기업 / 사업 정보",
+    "🏢 1. 기업 / 사업 정보 입력",
     expanded=not has_profile,
 ):
 
-    p = (
-        st.session_state
-        .company_profile
-    )
+    with st.form("company_profile_form"):
 
+        col1, col2 = st.columns(2)
 
-    with st.form(
-        f"profile_"
-        f"{st.session_state.active_session_id}"
-    ):
-
-        c1, c2 = (
-            st.columns(2)
-        )
-
-
-        with c1:
-
-            company_name = (
-                st.text_input(
-                    "기업명",
-                    value=p.get(
-                        "company_name",
-                        "",
-                    ),
-                    placeholder="예: 수미헬스",
-                )
+        with col1:
+            company_name = st.text_input(
+                "기업명 (선택)",
+                value=profile.get(
+                    "company_name",
+                    "",
+                ),
+                placeholder="예: ABC테크",
             )
 
-
-        with c2:
+        with col2:
 
             stages = [
-
                 "아이디어 구상 중",
-
                 "시장 조사 중",
-
                 "준비/세팅 중",
-
-                "운영 시작 (1년 미만)",
-
-                "운영 중 (1년 이상)",
+                "초기 제품·서비스 개발 중",
+                "시범 운영 / PoC 중",
+                "정식 운영 중",
             ]
 
-
-            current_stage = p.get(
+            saved_stage = profile.get(
                 "stage",
                 "준비/세팅 중",
             )
 
-
-            if current_stage in stages:
-
-                stage_index = (
-                    stages.index(
-                        current_stage
-                    )
+            try:
+                stage_index = stages.index(
+                    saved_stage
                 )
-
-            else:
-
+            except ValueError:
                 stage_index = 2
 
-
-            stage = (
-                st.selectbox(
-                    "현재 단계",
-                    stages,
-                    index=stage_index,
-                )
+            stage = st.selectbox(
+                "현재 단계",
+                stages,
+                index=stage_index,
             )
 
 
-        business_item = (
-            st.text_input(
-                "사업 아이템",
-                value=p.get(
-                    "business_item",
+        business_item = st.text_input(
+            "사업 아이템",
+            value=profile.get(
+                "business_item",
+                "",
+            ),
+            placeholder=(
+                "예: 공공데이터를 활용한 "
+                "소상공인 업무지원 서비스"
+            ),
+        )
+
+
+        problem = st.text_area(
+            "해결하려는 문제",
+            value=profile.get(
+                "problem",
+                "",
+            ),
+            height=110,
+            placeholder=(
+                "누가 어떤 문제를 겪고 있으며, "
+                "현재 방식으로 왜 해결하기 어려운지 적어주세요."
+            ),
+        )
+
+
+        development = st.text_area(
+            "현재 개발단계 / 보유 기능 (선택)",
+            value=profile.get(
+                "development",
+                "",
+            ),
+            height=90,
+            placeholder=(
+                "현재 개발된 기능, 시제품, "
+                "PoC 또는 서비스 운영 현황 등을 적어주세요."
+            ),
+        )
+
+
+        st.markdown("#### 공공데이터 정보")
+
+
+        needed_data = st.text_area(
+            "필요한 공공데이터",
+            value=profile.get(
+                "needed_data",
+                "",
+            ),
+            height=100,
+            placeholder=(
+                "사업 수행에 필요한 데이터가 무엇인지 적어주세요."
+            ),
+        )
+
+
+        needed_fields = st.text_area(
+            "필요한 주요 데이터 항목 (선택)",
+            value=profile.get(
+                "needed_fields",
+                "",
+            ),
+            height=85,
+            placeholder=(
+                "예: 지역, 기준연월, 상태코드, "
+                "처리결과, 변경이력 등"
+            ),
+        )
+
+
+        col3, col4 = st.columns(2)
+
+        with col3:
+            data_holder = st.text_input(
+                "예상 데이터 보유기관",
+                value=profile.get(
+                    "data_holder",
                     "",
                 ),
-                placeholder=(
-                    "예: 공공데이터 기반 "
-                    "양압기 환자관리·행정업무 "
-                    "지원 AI 서비스"
-                ),
+                placeholder="예: 관련 중앙부처 또는 공공기관",
             )
-        )
 
-
-        problem = (
-            st.text_area(
-                "해결하려는 문제",
-                value=p.get(
-                    "problem",
+        with col4:
+            request_date = st.text_input(
+                "공공데이터 제공 신청일 (선택)",
+                value=profile.get(
+                    "request_date",
                     "",
                 ),
-                height=100,
-                placeholder=(
-                    "누가 어떤 업무에서 "
-                    "어떤 문제를 겪고 있는지 "
-                    "적어주세요."
-                ),
-            )
-        )
-
-
-        needed_data = (
-            st.text_area(
-                "필요한 공공데이터",
-                value=p.get(
-                    "needed_data",
-                    "",
-                ),
-                height=95,
-                placeholder=(
-                    "필요 데이터명과 "
-                    "주요 항목을 적어주세요."
-                ),
-            )
-        )
-
-
-        c3, c4 = (
-            st.columns(2)
-        )
-
-
-        with c3:
-
-            data_holder = (
-                st.text_input(
-                    "데이터 보유기관",
-                    value=p.get(
-                        "data_holder",
-                        "",
-                    ),
-                    placeholder=(
-                        "예: 국민건강보험공단"
-                    ),
-                )
+                placeholder="예: 2026-08-20",
             )
 
 
-        with c4:
+        col5, col6 = st.columns(2)
 
-            request_date = (
-                st.date_input(
-                    "공공데이터 신청일",
-                    value=safe_date(
-                        p.get(
-                            "request_date"
-                        )
-                    ),
-                )
-            )
+        with col5:
 
-
-        c5, c6 = (
-            st.columns(2)
-        )
-
-
-        with c5:
-
-            results = [
-
-                "제공 불가",
-
+            data_results = [
+                "아직 신청 전",
                 "처리 중",
-
                 "제공",
-
+                "제공 불가",
                 "기타",
             ]
 
-
-            current_result = (
-                p.get(
-                    "data_result",
-                    "제공 불가",
-                )
+            current_result = profile.get(
+                "data_result",
+                "아직 신청 전",
             )
 
-
-            if current_result in results:
-
+            try:
                 result_index = (
-                    results.index(
+                    data_results.index(
                         current_result
                     )
                 )
-
-            else:
-
+            except ValueError:
                 result_index = 0
 
-
-            data_result = (
-                st.selectbox(
-                    "처리 결과",
-                    results,
-                    index=result_index,
-                )
+            data_result = st.selectbox(
+                "처리 결과",
+                data_results,
+                index=result_index,
             )
 
 
-        with c6:
-
-            refusal_reason = (
-                st.text_input(
-                    "제공거부 사유",
-                    value=p.get(
-                        "refusal_reason",
-                        "",
-                    ),
-                    placeholder=(
-                        "예: 추가 가공 필요"
-                    ),
-                )
-            )
-
-
-        development = (
-            st.text_area(
-                "현재 개발단계 / 보유 기능",
-                value=p.get(
-                    "development",
+        with col6:
+            refusal_reason = st.text_input(
+                "제공 불가 사유 (해당 시)",
+                value=profile.get(
+                    "refusal_reason",
                     "",
                 ),
-                height=95,
-            )
-        )
-
-
-        extra_context = (
-            st.text_area(
-                "추가 정보 (선택)",
-                value=p.get(
-                    "extra_context",
-                    "",
-                ),
-                height=90,
                 placeholder=(
-                    "제공불가 상세사유, "
-                    "팀 역량, 고객, "
-                    "수익모델 등"
+                    "예: 미개방 데이터, 추가 가공 필요 등"
                 ),
             )
-        )
 
 
-        save = (
-            st.form_submit_button(
-                "정보 저장하고 AI 코칭 시작 →",
-                use_container_width=True,
-                type="primary",
+        st.markdown("#### 사업화 정보")
+
+
+        col7, col8 = st.columns(2)
+
+        with col7:
+            customers = st.text_area(
+                "주요 고객 (선택)",
+                value=profile.get(
+                    "customers",
+                    "",
+                ),
+                height=85,
+                placeholder=(
+                    "누가 이 제품 또는 서비스를 구매하거나 "
+                    "사용할지 적어주세요."
+                ),
             )
+
+        with col8:
+            business_model = st.text_area(
+                "사업화 / 수익모델 (선택)",
+                value=profile.get(
+                    "business_model",
+                    "",
+                ),
+                height=85,
+                placeholder=(
+                    "예: SaaS 구독, 기관 계약, "
+                    "사용량 기반 과금 등"
+                ),
+            )
+
+
+        team = st.text_area(
+            "대표자 / 팀 역량 (선택)",
+            value=profile.get(
+                "team",
+                "",
+            ),
+            height=85,
+            placeholder=(
+                "관련 경력, 개발역량, "
+                "프로젝트 수행경험 등을 적어주세요."
+            ),
         )
 
 
-    if save:
+        extra_context = st.text_area(
+            "추가 정보 (선택)",
+            value=profile.get(
+                "extra_context",
+                "",
+            ),
+            height=85,
+            placeholder=(
+                "데이터 제공불가 상세사유, "
+                "기존 실적 또는 AI가 참고해야 할 내용을 적어주세요."
+            ),
+        )
 
-        new_profile = {
 
-            "company_name":
-                company_name.strip(),
+        submitted = st.form_submit_button(
+            "정보 저장하고 AI 코칭 시작 →",
+            use_container_width=True,
+            type="primary",
+        )
 
-            "business_item":
-                business_item.strip(),
 
-            "stage":
-                stage,
+    if submitted:
 
-            "problem":
-                problem.strip(),
-
-            "needed_data":
-                needed_data.strip(),
-
-            "data_holder":
-                data_holder.strip(),
-
-            "request_date":
-                request_date.isoformat(),
-
-            "data_result":
-                data_result,
-
-            "refusal_reason":
-                refusal_reason.strip(),
-
-            "development":
-                development.strip(),
-
-            "extra_context":
-                extra_context.strip(),
+        st.session_state.company_profile = {
+            "company_name": company_name.strip(),
+            "business_item": business_item.strip(),
+            "stage": stage,
+            "problem": problem.strip(),
+            "needed_data": needed_data.strip(),
+            "needed_fields": needed_fields.strip(),
+            "data_holder": data_holder.strip(),
+            "request_date": request_date.strip(),
+            "data_result": data_result,
+            "refusal_reason": refusal_reason.strip(),
+            "development": development.strip(),
+            "customers": customers.strip(),
+            "business_model": business_model.strip(),
+            "team": team.strip(),
+            "extra_context": extra_context.strip(),
         }
 
-
-        st.session_state.company_profile = (
-            new_profile
-        )
-
-
-        save_profile(
-            st.session_state.active_session_id,
-            new_profile,
-        )
-
+        st.session_state.profile_saved = True
 
         st.success(
-            "기업 / 사업 정보를 저장했습니다."
+            "입력한 정보를 반영했습니다."
         )
-
 
         st.rerun()
 
@@ -1916,97 +1146,64 @@ with st.expander(
 # PROFILE SUMMARY
 # ============================================================
 
-profile = (
-    st.session_state
-    .company_profile
-)
+profile = st.session_state.company_profile
 
 
-has_profile = bool(
-    profile.get("business_item")
-    or
-    profile.get("needed_data")
-)
+if profile.get("business_item"):
 
+    summary_items = []
 
-if has_profile:
-
-    items = []
-
-
-    if profile.get(
-        "company_name"
-    ):
-
-        items.append(
-            f"<b>기업</b> "
-            f"{profile['company_name']}"
+    if profile.get("business_item"):
+        summary_items.append(
+            f"<b>사업</b> {profile['business_item']}"
         )
 
-
-    if profile.get(
-        "business_item"
-    ):
-
-        items.append(
-            f"<b>아이템</b> "
-            f"{profile['business_item']}"
+    if profile.get("data_holder"):
+        summary_items.append(
+            f"<b>예상 보유기관</b> {profile['data_holder']}"
         )
 
-
-    if profile.get(
-        "data_holder"
-    ):
-
-        items.append(
-            f"<b>데이터</b> "
-            f"{profile['data_holder']}"
+    if profile.get("data_result"):
+        summary_items.append(
+            f"<b>데이터 상태</b> {profile['data_result']}"
         )
-
-
-    if profile.get(
-        "data_result"
-    ):
-
-        items.append(
-            f"<b>처리결과</b> "
-            f"{profile['data_result']}"
-        )
-
 
     st.markdown(
-        (
-            '<div class="gm-summary">'
-            +
-            " &nbsp;·&nbsp; ".join(
-                items
-            )
-            +
-            '</div>'
-        ),
+        '<div class="gm-info-box">'
+        + " &nbsp;&nbsp;·&nbsp;&nbsp; ".join(
+            summary_items
+        )
+        + "</div>",
         unsafe_allow_html=True,
     )
 
 
 # ============================================================
-# OPENAI
+# AI CLIENT
 # ============================================================
 
-if openai_key:
+client = None
 
-    client = OpenAI(
-        api_key=openai_key
-    )
+
+if openai_api_key:
+
+    try:
+        client = OpenAI(
+            api_key=openai_api_key
+        )
+
+    except Exception as exc:
+        st.error(
+            "OpenAI 연결을 초기화하지 못했습니다."
+        )
+        st.code(str(exc))
+
 
 else:
 
-    client = None
-
-
     st.info(
-        "왼쪽 사이드바에 "
-        "OpenAI API Key를 입력하면 "
-        "AI 상담을 시작할 수 있습니다."
+        "AI 상담을 사용하려면 왼쪽에서 "
+        "OpenAI API Key를 입력해 주세요."
     )
 
 
@@ -2014,85 +1211,134 @@ else:
 # SYSTEM PROMPT
 # ============================================================
 
-def system_prompt():
+def build_system_prompt():
 
     return f"""
-당신은 대한민국 정부지원사업 전문 컨설턴트이며,
-2026년 민관협력 오픈이노베이션
-'공공데이터 활용 지원' Bottom-Up 사업계획서
-작성·평가를 돕는 AI Coach다.
+당신은 대한민국 정부지원사업 전문 컨설턴트다.
 
-무조건 긍정적으로 평가하지 않는다.
-심사 위험과 논리적 약점을 찾아
-실제 선정 가능성을 높인다.
+특히 2026년
+민관협력 오픈이노베이션
+'공공데이터 활용 지원'
+창업기업 제안 협업과제(Bottom-Up)의
+사업계획서 작성과 검토를 지원하는 AI Coach다.
+
+목표는 사용자의 사업을 무조건 좋게 평가하는 것이 아니다.
+
+심사위원이 이해하기 어려운 부분,
+논리적 약점,
+데이터 필요성이 약한 부분,
+5개월 안에 구현하기 어려운 부분,
+사업화 지속성이 부족한 부분을 찾아내어
+실제 사업계획서를 개선하도록 돕는다.
 
 
-[공식 사업 정보]
+==================================================
+공식 사업 정보
+==================================================
 
 {PROGRAM_KNOWLEDGE}
 
 
-[상담 모드]
+==================================================
+현재 상담 모드
+==================================================
 
 {mode}
 
 {MODE_INSTRUCTIONS[mode]}
 
 
-[집중 검토 항목]
+==================================================
+현재 집중 검토 항목
+==================================================
 
 {section}
 
 
-[기업 / 사업 정보]
+==================================================
+사용자가 입력한 기업 / 사업 정보
+==================================================
 
-{profile_text(
-    st.session_state.company_profile
-)}
+{profile_to_text(st.session_state.company_profile)}
 
 
-[반드시 지킬 규칙]
+==================================================
+반드시 지켜야 할 규칙
+==================================================
 
 1.
-공고 사실과 사용자가 제공한 사실을 구분한다.
+공고에 명시된 내용과
+사용자가 제공한 사실을 명확히 구분한다.
 
 2.
-확인되지 않은 사실을 만들지 않는다.
+사용자가 제공하지 않은
+실적, 매출, 고객, 계약, 특허,
+인력, 기술을 만들어내지 않는다.
 
 3.
-정보가 부족하면 필요한 최소 질문만 한다.
+정보가 부족하더라도
+불필요하게 많은 질문을 하지 않는다.
+
+판단에 반드시 필요한 정보만 질문한다.
 
 4.
-다음 연결을 가장 중요하게 본다.
+다음 연결을 가장 중요하게 평가한다.
 
-문제
-→ 공공데이터
-→ 데이터 필수성
-→ 구현 기능
-→ PoC
+실제 문제
+→ 기존 방식의 한계
+→ 필요한 공공데이터
+→ 데이터가 반드시 필요한 이유
+→ 데이터 활용 방법
+→ 구현되는 제품/서비스 기능
+→ 5개월 PoC
 → 공공기관 가치
 → 고객 가치
-→ 사업화
+→ 사업화 및 지속가능성
 
 5.
-공공데이터 없이도
-동일한 서비스를 만들 수 있다는
-반론을 항상 점검한다.
+공공데이터가 없어도 동일한 서비스를
+쉽게 구현할 수 있다는 반론을 반드시 검토한다.
 
 6.
-5개월 협약기간 내
-실현 가능성을 검토한다.
+단순히 AI를 사용한다는 이유로
+기술적 차별성이 있다고 판단하지 않는다.
 
 7.
-단순히 'AI를 활용한다'는 이유만으로
-차별성이 있다고 판단하지 않는다.
+협약기간 5개월 안에
+실제로 구현 가능한 범위인지 검토한다.
 
 8.
-공식 배점이 공개되지 않았으므로
-임의 점수를 공식 평가점수처럼 표현하지 않는다.
+지원사업을 받기 위한 일회성 아이디어가 아니라
+협약 종료 후에도 사업으로 지속할 수 있는지 검토한다.
 
 9.
-한국어로 간결하고 구체적으로 답한다.
+과장된 정부지원사업식 표현보다
+구체적인 데이터, 기능, 산출물,
+고객, 검증방법을 우선한다.
+
+10.
+확인되지 않은 내용은
+'확인 필요'라고 명확하게 표시한다.
+
+11.
+공식 평가영역별 세부 배점이 공개되지 않았으므로
+임의의 점수를 공식 평가점수처럼 표현하지 않는다.
+
+12.
+답변은 한국어로 작성한다.
+
+13.
+가급적 다음 방식으로 답한다.
+
+- 현재 판단
+- 강점 또는 확인된 부분
+- 문제점 또는 보완 필요사항
+- 구체적인 개선방안
+- 필요할 경우 실제 사업계획서 문안
+
+14.
+사용자가 이미 충분한 정보를 제공했다면
+같은 내용을 반복해서 질문하지 않는다.
 """
 
 
@@ -2100,44 +1346,49 @@ def system_prompt():
 # QUICK ACTIONS
 # ============================================================
 
-st.markdown(
-    "#### 빠른 시작"
-)
+st.markdown("### 무엇을 도와드릴까요?")
 
 
-q1, q2, q3, q4 = (
-    st.columns(4)
-)
+q1, q2, q3, q4 = st.columns(4)
 
 
-quick = None
+quick_prompt = None
 
 
 with q1:
 
     if st.button(
-        "🧩 데이터 필요성",
+        "🧩 데이터 필요성 점검",
         use_container_width=True,
+        disabled=client is None,
     ):
 
-        quick = (
-            "요청한 공공데이터가 왜 반드시 필요한지, "
-            "데이터 없이도 만들 수 있다는 반론까지 포함해 "
-            "레드팀 평가해줘."
-        )
+        quick_prompt = """
+현재 사업에서 요청한 공공데이터가
+왜 반드시 필요한지 검토해줘.
+
+특히
+'이 데이터 없이도 서비스를 만들 수 있는 것 아닌가?'
+라는 심사위원의 반론까지 포함하여
+레드팀 관점에서 평가해줘.
+"""
 
 
 with q2:
 
     if st.button(
-        "✍️ 문안 작성",
+        "✍️ 사업계획서 문안",
         use_container_width=True,
+        disabled=client is None,
     ):
 
-        quick = (
-            f"사업계획서의 '{section}' 항목을 "
-            "현재 확인된 사실만 사용해서 작성해줘."
-        )
+        quick_prompt = f"""
+현재 입력된 사실만 이용해서
+사업계획서의 '{section}' 부분을 작성해줘.
+
+확인되지 않은 사실을 만들지 말고,
+정보가 부족한 부분은 [확인 필요]로 표시해줘.
+"""
 
 
 with q3:
@@ -2145,14 +1396,21 @@ with q3:
     if st.button(
         "🔎 심사위원 평가",
         use_container_width=True,
+        disabled=client is None,
     ):
 
-        quick = (
-            "공고의 공식 평가영역 기준으로 "
-            "현재 사업계획을 평가하고, "
-            "가장 큰 탈락 위험과 "
-            "수정 우선순위 TOP 3를 알려줘."
-        )
+        quick_prompt = """
+현재 입력된 사업을
+이 지원사업의 심사위원이라고 가정하고 평가해줘.
+
+공식 평가영역을 기준으로
+강점, 약점, 탈락 위험,
+심사위원이 질문할 부분을 분석하고
+
+마지막에
+'가장 먼저 수정할 TOP 3'
+를 제시해줘.
+"""
 
 
 with q4:
@@ -2160,28 +1418,43 @@ with q4:
     if st.button(
         "✅ 제출 전 QA",
         use_container_width=True,
+        disabled=client is None,
     ):
 
-        quick = (
-            "현재까지 입력된 내용을 기준으로 "
-            "제출 전 QA를 해줘. "
-            "확인 완료/확인 필요/중대한 위험으로 "
-            "구분해줘."
-        )
+        quick_prompt = """
+현재까지 입력된 정보를 기준으로
+지원사업 제출 전 QA를 해줘.
+
+각 내용을
+
+✅ 확인 완료
+⚠️ 확인 필요
+❌ 중대한 위험
+
+으로 구분하고
+
+마지막에
+제출 전 해야 할 일을
+우선순위 순으로 정리해줘.
+"""
 
 
 # ============================================================
 # CHAT
 # ============================================================
 
-st.markdown(
-    "#### AI 상담"
-)
+st.markdown("### 💬 AI 상담")
 
 
-for message in (
-    st.session_state.messages
-):
+if not st.session_state.messages:
+
+    st.caption(
+        "위 빠른 시작 버튼을 누르거나 "
+        "아래 입력창에서 자유롭게 질문할 수 있습니다."
+    )
+
+
+for message in st.session_state.messages:
 
     with st.chat_message(
         message["role"]
@@ -2192,181 +1465,132 @@ for message in (
         )
 
 
-chat = st.chat_input(
-    (
-        "사업계획서, 공공데이터, "
-        "심사 기준 등에 대해 질문해 주세요."
-    ),
+chat_prompt = st.chat_input(
+    "사업계획서, 공공데이터, 심사 기준 등에 대해 질문해 주세요.",
     disabled=client is None,
 )
 
 
 prompt = (
-    quick
-    or
-    chat
+    quick_prompt
+    if quick_prompt
+    else chat_prompt
 )
 
 
-if (
-    prompt
-    and
-    client
-):
+# ============================================================
+# CALL OPENAI
+# ============================================================
 
-    sid = (
-        st.session_state
-        .active_session_id
-    )
+if prompt and client:
 
-
-    first = (
-        len(
-            st.session_state.messages
-        )
-        ==
-        0
-    )
-
-
+    # User message
     st.session_state.messages.append(
         {
-            "role":
-                "user",
-
-            "content":
-                prompt,
+            "role": "user",
+            "content": prompt,
         }
     )
 
 
-    save_message(
-        sid,
-        "user",
-        prompt,
-    )
+    with st.chat_message("user"):
 
-
-    if first:
-
-        title = (
-            prompt
-            .strip()
-            .replace(
-                "\n",
-                " ",
-            )
-        )
-
-
-        if len(title) > 30:
-
-            title = (
-                title[:30]
-                +
-                "…"
-            )
-
-
-        update_title(
-            sid,
-            title,
-        )
-
-
-    with st.chat_message(
-        "user"
-    ):
-
-        st.markdown(
-            prompt
-        )
+        st.markdown(prompt)
 
 
     try:
 
-        with st.chat_message(
-            "assistant"
-        ):
+        with st.chat_message("assistant"):
 
             with st.spinner(
                 "공고 기준으로 검토하고 있습니다..."
             ):
 
-                response = (
-                    client.responses.create(
-
-                        model="gpt-5.6-luna",
-
-                        instructions=(
-                            system_prompt()
-                        ),
-
-                        input=[
-
-                            {
-                                "role":
-                                    message["role"],
-
-                                "content":
-                                    message["content"],
-                            }
-
-                            for message
-                            in
-                            st.session_state.messages
-                        ],
-                    )
+                response = client.responses.create(
+                    model="gpt-5.6-luna",
+                    instructions=build_system_prompt(),
+                    input=[
+                        {
+                            "role": message["role"],
+                            "content": message["content"],
+                        }
+                        for message in st.session_state.messages
+                    ],
+                    max_output_tokens=3000,
                 )
 
 
-                answer = (
-                    response.output_text
-                )
+                answer = response.output_text
 
 
-                st.markdown(
-                    answer
-                )
+                st.markdown(answer)
 
 
         st.session_state.messages.append(
             {
-                "role":
-                    "assistant",
-
-                "content":
-                    answer,
+                "role": "assistant",
+                "content": answer,
             }
-        )
-
-
-        save_message(
-            sid,
-            "assistant",
-            answer,
         )
 
 
     except Exception as exc:
 
         st.error(
-            "OpenAI API 호출 중 오류가 발생했습니다."
+            "AI 답변을 생성하는 중 오류가 발생했습니다."
         )
 
-        st.code(
-            str(exc)
+        st.write(
+            "API Key가 유효한지, "
+            "API 결제/사용한도가 설정되어 있는지 확인해 주세요."
         )
+
+        with st.expander(
+            "오류 상세 보기"
+        ):
+            st.code(str(exc))
+
+
+# ============================================================
+# BOTTOM ACTIONS
+# ============================================================
+
+if st.session_state.messages:
+
+    st.divider()
+
+    bottom1, bottom2 = st.columns(2)
+
+
+    with bottom1:
+
+        transcript = conversation_markdown(
+            st.session_state.messages
+        )
+
+        st.download_button(
+            "⬇ 현재 상담 내용 다운로드",
+            data=transcript,
+            file_name="grantmate_chat.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+
+
+    with bottom2:
+
+        if st.button(
+            "🗑 대화만 초기화",
+            use_container_width=True,
+        ):
+
+            st.session_state.messages = []
+
+            st.rerun()
 
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-st.divider()
-
-st.caption(
-    "GrantMate는 강좌 실습용 AI 도구입니다. "
-    "최종 신청 전에는 반드시 공식 모집공고와 "
-    "K-Startup 제출 내용을 직접 확인하세요."
-)
+st.divider
